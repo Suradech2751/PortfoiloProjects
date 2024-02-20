@@ -22,7 +22,7 @@ ALTER TABLE NashVilleHousing
 ADD SaleDateConverted Date
 
 --UPDATE SaleDateConverted
---�����繵�ͧ�� WHERE �ѹ�����§ŧ����
+--ไม่จำเป็นต้องมี WHERE มันจะเรียงลงไปเลย
 
 UPDATE NashvilleHousing
 SET SaleDateConverted = CONVERT(DATE,SaleDate)
