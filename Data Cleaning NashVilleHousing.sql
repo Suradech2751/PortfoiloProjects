@@ -5,7 +5,7 @@ FROM PortfolioProject.dbo.NashvilleHousing
 
 --Standardize Data Format
 
-STEP 1 SaleDate: COVERT THE DateTime To date in 
+--STEP 1 SaleDate: COVERT THE DateTime To date in 
 
 SELECT SaleDate, CONVERT(DATE,SaleDate) AS SaleDateConverted
 FROM PortfolioProject.dbo.NashvilleHousing
@@ -30,7 +30,7 @@ SET SaleDateConverted = CONVERT(DATE,SaleDate)
 SELECT SaleDateConverted
 FROM NashvilleHousing
 
-STEP 2 PropertyAddress: FILL OUT SOME MISSING PropertyAddress
+--STEP 2 PropertyAddress: FILL OUT SOME MISSING PropertyAddress
 
 SELECT *
 FROM NashvilleHousing
@@ -98,5 +98,185 @@ SET	PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',', PropertyAddres
 SELECT PropertySplitAddress, PropertySplitCity
 FROM NashvilleHousing
 
-STEP 3 OWERNERAddress
-COUNTINUE AT 27.09
+--STEP 3 OWERNERAddress
+
+--FIND OUT SOME NULL
+SELECT *
+FROM NashvilleHousing
+ORDER BY ParcelID
+
+--FILL OUT THE DATA
+SELECT a.ParcelID, a.OwnerAddress, b.ParcelID, b.OwnerAddress
+FROM NashvilleHousing AS a
+JOIN NashvilleHousing AS b
+	on a.ParcelID = b.ParcelID
+	AND a.[UniqueID ] <> b.[UniqueID ]
+WHERE a.OwnerAddress is NOT NULL and b.OwnerAddress is Null
+ORDER BY a.ParcelID
+
+--CREATE NEW SEPARATED COLUMN
+
+SELECT 
+PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3),
+PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2),
+PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1)
+FROM NashvilleHousing 
+
+--ADD 3 COLUMNS FOR SEPARATED ADDRESS
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitAddress nvarchar(225)
+
+UPDATE NashvilleHousing
+SET OwnerSplitAddress = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 3)
+FROM NashvilleHousing
+
+SELECT OwnerAddress, OwnerSplitAddress
+FROM NashvilleHousing
+
+---
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitCity nvarchar(225)
+
+UPDATE NashvilleHousing
+SET OwnerSplitCity = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 2)
+FROM NashvilleHousing
+
+SELECT OwnerAddress, OwnerSplitCity
+FROM NashvilleHousing
+
+---
+
+ALTER TABLE NashvilleHousing 
+ADD OwnerSplitState nvarchar(225)
+
+UPDATE NashvilleHousing
+SET OwnerSplitState = PARSENAME(REPLACE(OwnerAddress, ',', '.'), 1)
+FROM NashvilleHousing
+
+SELECT OwnerAddress, OwnerSplitState
+FROM NashvilleHousing
+
+--CHECK
+
+SELECT *
+FROM NashvilleHousing
+
+--STEP 4 OWNERNAME: Split Name And LAst Name
+
+--Check some blank
+SELECT a.ParcelID, a.OwnerName, b.ParcelID, b.OwnerName
+FROM NashvilleHousing AS a
+JOIN NashvilleHousing AS b
+	ON a.ParcelID = b.ParcelID
+	AND a.[UniqueID ]<> b.[UniqueID ]
+WHERE a.OwnerName is NOT NULL and b.OwnerName is NULL
+
+SELECT OwnerName, OwnerLastName, OwnerFirstName
+FROM NashvilleHousing
+
+ALTER TABLE NashVilleHousing
+ADD OwnerFirstName nvarchar(255)
+
+ALTER TABLE NashVilleHousing
+ADD OwnerLastName nvarchar(255)
+
+UPDATE NashvilleHousing
+SET OwnerLastName = SUBSTRING(OwnerName, 1, CHARINDEX(',', OwnerName)-1)
+
+SELECT
+	SUBSTRING(OwnerName, 1, CHARINDEX(',', OwnerName)-0.1) AS OwnerLastName,
+	SUBSTRING(OwnerName,CHARINDEX(',', OwnerName)+1, LEN(OwnerName)) AS OwnerFirstName
+FROM NashvilleHousing
+WHERE OwnerName is NOT NULL
+
+UPDATE NashvilleHousing
+SET
+	OwnerLastName = SUBSTRING(OwnerName, 1, CHARINDEX(',', OwnerName)-0.1)
+	
+UPDATE NashvilleHousing
+SET
+	OwnerFirstName = SUBSTRING(OwnerName,CHARINDEX(',', OwnerName)+1, LEN(OwnerName))
+
+SELECT *
+FROM NashvilleHousing
+
+SELECT
+	SUBSTRING(OwnerName, 1, CHARINDEX(',', OwnerName)-1) AS OwnerLastName 
+FROM NashvilleHousing
+WHERE OwnerName is NOT NULL
+
+SELECT UPPER(OwnerFirstName), UPPER(OwnerLastName)
+FROM NashvilleHousing
+
+UPDATE NashvilleHousing
+SET OwnerFirstName = UPPER(OwnerFirstName),
+	OwnerLastName = UPPER(OwnerLastName)
+
+--STEP 5 SoldAsVecant
+
+SELECT DISTINCT(SoldAsVacant), COUNT(SoldAsVacant)
+FROM NashvilleHousing
+GROUP BY SoldAsVacant
+ORDER BY 2
+
+--TRANSFORM "Y" AND "N" TO ----->  "YES" AND "NO"
+
+SELECT SoldAsVacant, 
+CASE
+	WHEN SoldAsVacant = 'Y' THEN 'Yes'
+	WHEN SoldAsVacant = 'N' THEN 'No'
+	ELSE SoldAsVacant
+END
+FROM NashvilleHousing
+
+--UPDATE Yes AND No
+
+UPDATE NashvilleHousing
+SET SoldAsVacant =
+(SELECT
+CASE
+	WHEN SoldAsVacant = 'Y' THEN 'Yes'
+	WHEN SoldAsVacant = 'N' THEN 'No'
+	ELSE SoldAsVacant
+END)
+FROM NashvilleHousing
+
+--CHECK
+
+SELECT SoldAsVacant, COUNT(SoldAsVacant)
+FROM NashvilleHousing
+GROUP BY SoldAsVacant
+
+--STEP 6 REMOVE SOME DUPLICATED ROWS BY CTEs
+
+WITH RowNumCTE AS
+(SELECT *,
+	ROW_NUMBER() OVER (
+	PARTITION BY	ParcelID, 
+			PropertyAddress,
+				SalePrice,
+				SaleDate,
+				LegalReference
+				ORDER BY
+					UniqueID
+					) row_num
+FROM NashvilleHousing
+)
+--DELETE
+SELECT *
+FROM RowNumCTE
+
+--NONE row_num>1
+
+SELECT *
+FROM NashvilleHousing
+
+--STEP 7 REMOVE DUPLICATED COLUMS (BEFORE CLEANING)
+
+SELECT *
+FROM NashvilleHousing
+
+ALTER TABLE NashvilleHousing
+DROP COLUMN OwnerAddress, SaleDate, OwnerName, PropertyAddress
